@@ -1,130 +1,131 @@
-# mysh — Minimal POSIX Shell in C
+# mysh — Shell POSIX minimalista en C
 
-A small interactive Unix shell written in C for an Operating Systems Architecture class. Implements the core concepts behind `bash`: process creation (`fork`), program loading (`exec`), parent waiting (`wait`), file descriptor redirection, pipes, and signal handling.
+Un shell Unix interactivo pequeño escrito en C para la clase de Arquitectura de Sistemas Operativos. Implementa los conceptos centrales detrás de `bash`: creación de procesos (`fork`), carga de programas (`exec`), espera del padre (`wait`), redirección de descriptores de archivo, tuberías y manejo de señales.
 
-## Build
+## Compilar
 
 ```bash
-make          # produces ./mysh
-make run      # build + run
-make clean    # remove build artifacts
+make          # produce ./mysh
+make run      # compila + ejecuta
+make clean    # borra artefactos de build
 ```
 
-Requires `gcc` and `libreadline` (already present on most Linux distros).
+Requiere `gcc` y `libreadline` (ya presentes en la mayoría de distros Linux).
 
-## Features
+## Funcionalidades
 
-### Built-in commands
-- `cd [dir]` — change directory (defaults to `$HOME`)
-- `exit [code]` — exit shell with status code
-- `pwd` — print working directory
-- `echo [-n] [args...]` — print args
-- `export NAME=VAL` — set environment variable (no args = list all)
-- `unset NAME` — remove env variable
-- `env` — dump all environment variables
-- `history` — show command history
-- `type <cmd>` — show whether a command is a builtin or external
-- `help` — show available builtins
-- `clear` — clear the screen
+### Comandos built-in
+- `cd [dir]` — cambia de directorio (por defecto a `$HOME`)
+- `cd -` — vuelve al directorio anterior (toggle entre actual y `$OLDPWD`)
+- `exit [code]` — sale del shell con el código de status
+- `pwd` — imprime el directorio de trabajo
+- `echo [-n] [args...]` — imprime los argumentos
+- `export NAME=VAL` — define variable de entorno (sin args = lista todas)
+- `unset NAME` — elimina una variable de entorno
+- `env` — vuelca todas las variables de entorno
+- `history` — muestra el historial de comandos
+- `type <cmd>` — indica si un comando es builtin o externo
+- `help` — muestra los builtins disponibles
+- `clear` — limpia la pantalla
 
-### External commands
-Any command found in `$PATH` is executed via `fork()` + `execvp()` + `waitpid()`. Exit status is captured.
+### Comandos externos
+Cualquier comando encontrado en `$PATH` se ejecuta vía `fork()` + `execvp()` + `waitpid()`. Se captura el exit status.
 
-### Pipes
+### Tuberías
 ```bash
 ls /usr/bin | grep ^g | head -3
-cat file.txt | wc -l
+cat archivo.txt | wc -l
 ```
 
-### Conditional / sequenced execution
+### Ejecución condicional / secuenciada
 ```bash
-cmd1 && cmd2     # run cmd2 only if cmd1 succeeded
-cmd1 || cmd2     # run cmd2 only if cmd1 failed
-cmd1 ; cmd2 ; cmd3   # run all in sequence, ignoring status
+cmd1 && cmd2     # ejecuta cmd2 sólo si cmd1 salió bien
+cmd1 || cmd2     # ejecuta cmd2 sólo si cmd1 falló
+cmd1 ; cmd2 ; cmd3   # ejecuta todos en secuencia, ignorando el status
 ```
 
-### I/O redirection
-- `>` — redirect stdout (truncate)
-- `>>` — redirect stdout (append)
-- `<` — redirect stdin
-- `2>` — redirect stderr (truncate)
-- `2>>` — redirect stderr (append)
+### Redirección de E/S
+- `>` — redirige stdout (truncar)
+- `>>` — redirige stdout (append)
+- `<` — redirige stdin
+- `2>` — redirige stderr (truncar)
+- `2>>` — redirige stderr (append)
 
-### Background jobs
+### Jobs en background
 ```bash
 sleep 5 &
 ```
-Prints the PID and returns to the prompt immediately. Finished background jobs are reaped on the next prompt.
+Imprime el PID y vuelve al prompt inmediatamente. Los jobs en background que terminaron se cosechan (reap) en el siguiente prompt.
 
-### Variables and expansion
-- `$VAR` and `${VAR}` — environment variable expansion
-- `$?` — last command exit status
-- `$(command)` — command substitution (runs `command`, replaces with stdout, trailing newlines stripped)
-- `~` — expands to `$HOME`
-- Single quotes `'...'` — literal
-- Double quotes `"..."` — supports variable expansion
-- Backslash escaping outside single quotes
+### Variables y expansión
+- `$VAR` y `${VAR}` — expansión de variable de entorno
+- `$?` — exit status del último comando
+- `$(comando)` — sustitución de comando (corre `comando`, reemplaza con su stdout, le quita los `\n` finales)
+- `~` — se expande a `$HOME`
+- Comillas simples `'...'` — literal
+- Comillas dobles `"..."` — permite expansión de variables
+- Backslash escapando fuera de comillas simples
 
 ### Brace expansion
-- `{a,b,c}` — comma list, expands to multiple words (`a b c`)
-- `{1..5}` — numeric range (`1 2 3 4 5`); `{01..05}` preserves zero-padding
-- `{a..e}` — alpha range (`a b c d e`)
-- Cartesian product: `pre{a,b}suf{1,2}` → `prea1 prea2 preb1 preb2`
-- Braces inside quotes are NOT expanded
-- Expansion happens BEFORE globbing (so `*.{c,h}` works as expected)
+- `{a,b,c}` — lista con comas, se expande a múltiples palabras (`a b c`)
+- `{1..5}` — rango numérico (`1 2 3 4 5`); `{01..05}` preserva el zero-padding
+- `{a..e}` — rango alfabético (`a b c d e`)
+- Producto cartesiano: `pre{a,b}suf{1,2}` → `prea1 prea2 preb1 preb2`
+- Las llaves dentro de comillas NO se expanden
+- La expansión ocurre ANTES del globbing (así `*.{c,h}` funciona como se espera)
 
 ### Glob expansion
-- `*` — matches any chars (except `/`)
-- `?` — matches one char
-- `[abc]` — character class
-- Implemented via POSIX `glob(3)` in the executor (so it expands per-arg in `argv`)
+- `*` — matchea cualquier cantidad de chars (excepto `/`)
+- `?` — matchea exactamente un char
+- `[abc]` — clase de caracteres
+- Implementado vía `glob(3)` POSIX en el executor (se expande por argumento dentro de `argv`)
 
-### History
-Persistent history via `readline` in `~/.mysh_history`. Up/down arrows + line editing are available out of the box.
+### Historial
+Historial persistente vía `readline` en `~/.mysh_history`. Up/down arrows + edición de línea vienen de fábrica.
 
-### Signal handling
-- `Ctrl+C` cancels the current input (does not kill the shell)
-- `Ctrl+D` (EOF) exits gracefully
-- `Ctrl+\` (SIGQUIT) is ignored
-- Foreground child processes receive signals normally; background jobs ignore `SIGINT`/`SIGQUIT` from the terminal
+### Manejo de señales
+- `Ctrl+C` cancela el input actual (no mata al shell)
+- `Ctrl+D` (EOF) sale de forma prolija
+- `Ctrl+\` (SIGQUIT) se ignora
+- Los procesos hijos en foreground reciben las señales normalmente; los jobs en background ignoran `SIGINT`/`SIGQUIT` de la terminal
 
-## Architecture
+## Arquitectura
 
 ```
 src/
-  main.c       — REPL loop, prompt, signal setup, history persistence
+  main.c       — loop REPL, prompt, setup de señales, persistencia de historial
   parser.c     — tokenizer + AST builder → pipeline_t
-  executor.c   — fork/exec/wait pipeline runner, redirection
-  builtins.c   — all builtin commands table + dispatch
-  expand.c     — $VAR, ${VAR}, ~ expansion
-  util.c       — small helpers (xstrdup)
+  executor.c   — runner de pipeline con fork/exec/wait, redirección
+  builtins.c   — tabla + dispatch de todos los builtins
+  expand.c     — expansión de $VAR, ${VAR}, $(...), {}, ~
+  util.c       — helpers chicos (xstrdup)
 include/
-  shell.h      — shared types (token_t, redir_t, simple_cmd_t, pipeline_t)
+  shell.h      — tipos compartidos (token_t, redir_t, simple_cmd_t, pipeline_t)
 Makefile
 ```
 
-### Data flow
-1. `readline()` reads a line → `parse_line()` produces a `pipeline_t`
-2. `pipeline_t` is a list of `simple_cmd_t`, each with `argv[]`, `redir_t[]`
+### Flujo de datos
+1. `readline()` lee una línea → `parse_line()` produce un `pipeline_t`
+2. `pipeline_t` es una lista de `simple_cmd_t`, cada uno con `argv[]`, `redir_t[]`
 3. `execute_pipeline()`:
-   - If single builtin with no redirection → runs in shell process
-   - Otherwise: creates pipes, forks one child per command, applies redirections, `execvp()`s, parent waits
-4. After execution, the shell reaps zombies and loops
+   - Si es un único builtin sin redirección → corre en el proceso del shell
+   - Si no: crea pipes, hace fork por comando, aplica redirecciones, `execvp()`, el padre espera
+4. Después de ejecutar, el shell cosecha zombies y vuelve al loop
 
-### Key system calls exercised
-- `fork()`, `execvp()`, `waitpid()` — process lifecycle
-- `pipe()`, `dup2()`, `open()`, `close()` — file descriptors and IPC
+### Llamadas al sistema ejercitadas
+- `fork()`, `execvp()`, `waitpid()` — ciclo de vida de procesos
+- `pipe()`, `dup2()`, `open()`, `close()` — descriptores de archivo e IPC
 - `chdir()`, `getcwd()`, `getenv()`, `setenv()`, `unsetenv()` — filesystem + env
-- `signal()`, `sigaction()` — signal handling
+- `signal()`, `sigaction()` — manejo de señales
 
-## Usage examples
+## Ejemplos de uso
 
 ```bash
 $ ./mysh
 mysh — minimal POSIX shell (type 'help' for commands)
 
-user@host:~$ echo "hello $USER"
-hello d4nitrix13
+user@host:~$ echo "hola $USER"
+hola d4nitrix13
 user@host:~$ export API=https://api.example.com
 user@host:~$ echo $API
 https://api.example.com
@@ -139,26 +140,23 @@ user@host:~$ exit
 mysh: goodbye
 ```
 
-### Demo script
+### Script de demo
 
-`demo.sh` runs every feature end-to-end (built-ins, pipes, redirection,
-`&&`/`||`/`;`, background, vars, `$?`, tilde, brace expansion, globs,
-`$(...)`, `type`, history). Run it with:
+`demo.sh` recorre todas las funcionalidades de punta a punta (built-ins, pipes, redirección, `&&`/`||`/`;`, background, vars, `$?`, tilde, brace expansion, globs, `$(...)`, `type`, history). Ejecutalo con:
 
 ```bash
 stdbuf -oL ./mysh < demo.sh
 ```
 
-`stdbuf -oL` disables stdout buffering so the output streams as the
-shell processes each line.
+`stdbuf -oL` desactiva el buffering de stdout para que el output vaya apareciendo a medida que el shell procesa cada línea.
 
-## Limitations
+## Limitaciones
 
-- No job control (`fg`, `bg`, `Ctrl+Z` are not handled)
-- No shell scripts / control flow (`if`, `for`, etc.)
-- No here-strings (`<<<`) or here-docs (`<<`)
-- `2>&1` style fd-to-fd redirection is not supported (only file-to-fd)
-- Single-quoted strings still expand `$VAR` (tokenizer strips outer quotes before expansion)
-- `#` comments not supported
+- Sin job control (`fg`, `bg`, `Ctrl+Z` no están manejados)
+- Sin scripts / control de flujo (`if`, `for`, etc.)
+- Sin here-strings (`<<<`) ni here-docs (`<<`)
+- No se soporta redirección fd-a-fd estilo `2>&1` (sólo file-a-fd)
+- Las strings en comillas simples igual expanden `$VAR` (el tokenizer les quita las comillas antes de expandir)
+- Comentarios con `#` no soportados
 
-These are deliberate omissions to keep the codebase focused on the core OS concepts the project is graded on.
+Estas son omisiones a propósito para mantener el codebase enfocado en los conceptos centrales de SO sobre los que se evalúa el proyecto.
